@@ -13,5 +13,12 @@
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         }
+    ],
+    "buildPresets": [
+        {
+            "name": "aram build",
+            "description": "",
+            "displayName": ""
+        }
     ]
 }
