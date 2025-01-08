@@ -1,1 +1,8 @@
+# Mac shenanigans
 .DS_Store
+
+# Build results
+out/
+
+# VSC files.
+.vscode/
