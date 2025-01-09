@@ -27,8 +27,8 @@ typedef struct {
 } Entity;
 
 // Screen size
-#define SCREEN_WIDTH 46
-#define SCREEN_HEIGHT 20
+#define SCREEN_WIDTH 80
+#define SCREEN_HEIGHT 50
 
 // Screen position
 #define SAMPLE_SCREEN_X 20
