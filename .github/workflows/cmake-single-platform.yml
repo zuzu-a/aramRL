@@ -34,7 +34,7 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${github.workspace}}/build --config Debug --target all -j 10
+      run: cmake --build ${{github.workspace}}/build --config Debug --target all -j 10
 
     - name: Test
       working-directory: ${{github.workspace}}/build

@@ -7,8 +7,9 @@ int main(int argc, char* argv[]) {
     // TILESET CONFIGURATION
     
     
-    auto default_tileset = tcod::load_tilesheet("tileset/Terrain.png", {16, 110}, tcod::CHARMAP_CP437);
-    default_tileset.get() -> character_map_length = 175;
+    auto default_tileset = tcod::load_tilesheet("assets/gfx/Terrain.png", {16, 110}, tcod::CHARMAP_CP437);
+    default_tileset.get() -> tile_width = 16;
+    default_tileset.get() -> tile_height = 24;
     auto console = tcod::Console(SCREEN_WIDTH, SCREEN_HEIGHT);
 
     // Context configuration
@@ -26,7 +27,7 @@ int main(int argc, char* argv[]) {
     while (1) {
         TCOD_console_clear(console.get());
 
-        static constexpr std::array<int, 9> LEGEND = {'+', '-', '+', '|', '32', '|', '+', '-', '+'};
+        static constexpr std::array<int, 9> LEGEND = {'0', '1', '2', '3', '32', '5', '6', '7', '8'};
         tcod::draw_frame(console, {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}, LEGEND, {{255, 255, 255}}, {{0, 0, 0}});
 
         tcod::print(console, {SCREEN_WIDTH/2, 0}, "ARAM", std::nullopt, std::nullopt);
