@@ -24,7 +24,6 @@ jobs:
     
     - name: Build
       # Build your program with the given configuration
-      run: cmake
       run: cmake --build
       
     - name: Test
