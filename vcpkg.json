@@ -5,6 +5,7 @@
     "dependencies": [
       "libtcod",
       "sdl2",
+      "sdl2-image",
       {
         "name": "sdl2",
         "default-features": false,

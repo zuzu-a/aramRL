@@ -27,5 +27,6 @@ include_directories(${PROJECT_SOURCE_DIR}/inc)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 
 find_package(SDL2 CONFIG REQUIRED)
+find_package(SDL2_image CONFIG REQUIRED)
 find_package(libtcod CONFIG REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main libtcod::libtcod)
+target_link_libraries(${PROJECT_NAME} PRIVATE SDL2_image::SDL2_image SDL2::SDL2 SDL2::SDL2main libtcod::libtcod)
