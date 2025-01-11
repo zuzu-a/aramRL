@@ -3,6 +3,9 @@
 
 
 
+/* - - - - - - - - - - - - - - - - - - */
+// EXTERNAL LIBRARIES
+/* - - - - - - - - - - - - - - - - - - */
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -16,6 +19,7 @@
 // LOCAL INCLUDES FROM SOURCE CODE
 /* - - - - - - - - - - - - - - - - - - */
 
+#include <render.hpp>
 #include <tileset.hpp>
 #include <systems.hpp>
 
@@ -27,6 +31,8 @@
 /* - - - - - - - - - - - - - - - - - - */
 // COMPONENTS
 /* - - - - - - - - - - - - - - - - - - */
+
+using Entity = uint32_t;
 
 typedef struct Position {
     int x;
