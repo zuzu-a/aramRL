@@ -1,1 +1,1 @@
-Currently a work in progress. More information to be released here once codebase is in a readable state. Feel free to infer whatever from current work.
+Currently a work in progress. More information to be released here once codebase is in a readable state. Feel free to infer whatever from current work. The main purpose of the repository is to act as a baseplate game engine for future LD and 7DRL challenges.
