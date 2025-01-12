@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <entt/entt.hpp>
+#include <lodepng.h>
+#include <nlohmann/json.hpp>
 
 /* - - - - - - - - - - - - - - - - - - */
 // INLINE
@@ -22,10 +24,14 @@
 
 inline entt::registry registry{};
 inline sdl::TextureCache textureCache;
+
 inline sdl::FontCache fontCache;
 inline sdl::MusicCache musicCache;
+
 inline TileSet tileset;
 inline TileSet spriteSheet;
+
+using json = nlohmann::json
 
 /* - - - - - - - - - - - - - - - - - - */
 // LOCAL INCLUDES FROM SOURCE CODE
@@ -39,7 +45,7 @@ inline TileSet spriteSheet;
 #include <components/tileset.hpp>
 #include <components/transform.hpp>
 #include <components/vector2d.hpp>
-
+#include <tools/errors.hpp>
 
 /* - - - - - - - - - - - - - - - - - - */
 // CLASSES
