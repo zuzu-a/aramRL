@@ -6,6 +6,7 @@
       "libtcod",
       "sdl2",
       "sdl2-image",
+      "entt",
       {
         "name": "sdl2",
         "default-features": false,

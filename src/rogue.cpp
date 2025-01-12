@@ -1,8 +1,4 @@
 #include <rogue.hpp>
-#include <render.hpp>
-#include <systems.hpp>
-#include <tileset.hpp>
-
 
 int main(int argc, char* argv[]) {
 
