@@ -3,6 +3,8 @@
 
 # Build results
 out/
+build/
+bin/
 
 # VSC files.
 .vscode/

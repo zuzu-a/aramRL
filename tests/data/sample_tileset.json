@@ -1,0 +1,20 @@
+{
+    "name": "Sample Tileset",
+    "tilewidth": 32,
+    "tileheight": 32,
+    "tilecount": 4,
+    "columns": 2,
+    "image": "sample_tilesheet.png",
+    "imageheight": 64,
+    "imagewidth": 64,
+    "tiles": [
+        {"id": 0, "type": "grass"},
+        {"id": 1, "type": "dirt"},
+        {"id": 2, "properties": [{"name": "wall", "type": "bool", "value": true}]},
+        {"id": 3, "type": "water"}
+    ],
+    "tileoffset": {
+        "x": 1,
+        "y": 1
+    }
+}

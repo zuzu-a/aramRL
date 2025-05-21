@@ -9,7 +9,6 @@
 
 #include <SDL.h>
 #include <SDL_image.h>
-#include <libtcod.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,16 +21,11 @@
 // INLINE
 /* - - - - - - - - - - - - - - - - - - */
 
-inline entt::registry registry{};
-inline sdl::TextureCache textureCache;
+// TODO: entt::registry will be managed by a central game state manager or an Engine/Application class.
+// TODO: Caches (textureCache, fontCache, musicCache) will be part of a ResourceManager class.
+// TODO: TileSet (tileset, spriteSheet) will be managed by ResourceManager or specific Map/Sprite managers.
 
-inline sdl::FontCache fontCache;
-inline sdl::MusicCache musicCache;
-
-inline TileSet tileset;
-inline TileSet spriteSheet;
-
-using json = nlohmann::json
+using json = nlohmann::json; // Keep this if it's just a type alias and not a global instance
 
 /* - - - - - - - - - - - - - - - - - - */
 // LOCAL INCLUDES FROM SOURCE CODE
@@ -61,17 +55,8 @@ using json = nlohmann::json
 // LOCAL CONSTANTS
 /* - - - - - - - - - - - - - - - - - - */
 
-
-// Screen size
-#define SCREEN_WIDTH 24
-#define SCREEN_HEIGHT 12
-
-// Delta time
-#define DELTA_SAMPLES_LENGTH 64
-static float delta_time = 0.0f;  // The time in seconds of the current frame.
-static float delta_samples[DELTA_SAMPLES_LENGTH] = {0};
-static int last_delta_sample = 0;
-
-// Custom charmap for libtcod (Deprecated. Using SDL2 instead.)
+// TODO: Delta time calculation (delta_time, delta_samples, etc.) will be handled by the main game loop or an Engine class.
+// SCREEN_WIDTH and SCREEN_HEIGHT were related to libtcod and removed.
+// These might be redefined later for SDL window size.
 
 #endif
