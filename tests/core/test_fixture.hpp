@@ -63,6 +63,53 @@ protected: // Changed back to protected as tests will derive from this
         if (window) SDL_DestroyWindow(window);
         // SDL_Quit and IMG_Quit are handled in TearDownTestSuite
     }
+
+    // Mock Renderer for testing rendering calls
+    // Needs to be defined within the class or as a separate class
+    // For simplicity, defining it here if it's only for SDLTestFixture derivatives.
+    // If used more broadly, move to its own header or a general test utility header.
+    class TestMockRenderer : public Renderer {
+    public:
+        TestMockRenderer() : Renderer(nullptr) {} // Base class constructor
+
+        struct DrawTextureCall {
+            SDL_Texture* texture;
+            SDL_Rect srcRect;
+            SDL_Rect dstRect;
+            double angle;
+            SDL_Point center; // Store actual point, not pointer
+            SDL_RendererFlip flip;
+            SDL_Color colorTint;
+        };
+        std::vector<DrawTextureCall> drawTextureCalls;
+        int drawRectCallCount = 0; // From existing mock in systems_test
+
+        void DrawTexture(SDL_Texture* texture, 
+                         const SDL_Rect& srcRect, 
+                         const SDL_Rect& dstRect, 
+                         double angle, 
+                         const SDL_Point* center_ptr, 
+                         SDL_RendererFlip flip,
+                         const SDL_Color& colorTint) override {
+            SDL_Point center_val = {0,0};
+            if(center_ptr) center_val = *center_ptr;
+            drawTextureCalls.push_back({texture, srcRect, dstRect, angle, center_val, flip, colorTint});
+        }
+
+        void DrawRect(int x, int y, int w, int h, bool fill) override {
+            drawRectCallCount++;
+        }
+        void SetDrawColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a) override {
+            // Do nothing or record if needed
+        }
+        void Clear() override {
+            // Do nothing or record
+        }
+        void Present() override {
+            // Do nothing or record
+        }
+    };
 };
+
 
 #endif // TEST_FIXTURE_HPP

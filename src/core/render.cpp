@@ -53,3 +53,28 @@ void Renderer::DrawChar(char ch, int x, int y /* SDL_Color color, Font* font */)
 
     SDL_SetRenderDrawColor(m_sdlRenderer, restoreColor.r, restoreColor.g, restoreColor.b, restoreColor.a); // Restore color
 }
+
+void Renderer::DrawTexture(SDL_Texture* texture, 
+                             const SDL_Rect& srcRect, 
+                             const SDL_Rect& dstRect, 
+                             double angle, 
+                             const SDL_Point* center, 
+                             SDL_RendererFlip flip,
+                             const SDL_Color& colorTint) {
+    if (!m_sdlRenderer || !texture) {
+        // std::cerr << "Renderer::DrawTexture: Invalid renderer or texture." << std::endl;
+        return; 
+    }
+    // Apply tint to the texture
+    SDL_SetTextureColorMod(texture, colorTint.r, colorTint.g, colorTint.b);
+    SDL_SetTextureAlphaMod(texture, colorTint.a);
+
+    SDL_RenderCopyEx(m_sdlRenderer, texture, &srcRect, &dstRect, angle, center, flip);
+    
+    // Optional: Reset tint to white/opaque for subsequent draws that might not set it.
+    // However, it's generally better for the caller or the SpriteComponent itself to manage
+    // the desired tint per draw, rather than resetting globally here.
+    // If textures are consistently drawn with their own SpriteComponent.colorTint, this isn't needed.
+    // SDL_SetTextureColorMod(texture, 255, 255, 255);
+    // SDL_SetTextureAlphaMod(texture, 255);
+}

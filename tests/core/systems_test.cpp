@@ -86,26 +86,14 @@ TEST(MovementSystemTest, MovesEntityWithInput) {
 #include "inc/core/render.hpp" // For Renderer mock/stub if needed, or real for integration
 // For a stub test, we might not need a full Renderer, but TileSystem::Update expects one.
 
-// Mock Renderer for TileSystem test (very basic)
-class MockRenderer : public Renderer {
-public:
-    MockRenderer() : Renderer(nullptr) {} // Call base constructor with nullptr
-    int drawRectCallCount = 0;
-    void DrawRect(int x, int y, int w, int h, bool fill) override {
-        drawRectCallCount++;
-        // Call base or do nothing, just record call for test
-        // For this test, we're just checking if TileSystem::Update can be called.
-    }
-    void SetDrawColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a) override {
-        // Do nothing
-    }
-};
+// MockRenderer is now in test_fixture.hpp as SDLTestFixture::TestMockRenderer
 
 
 TEST(TileSystemTest, CanCreateAndUpdate) {
     entt::registry registry;
     TileSystem tileSystem;
-    MockRenderer mockRenderer; // Use a mock or a real SDL_Renderer if available/simple
+    // MockRenderer mockRenderer; // Use a mock or a real SDL_Renderer if available/simple
+    SDLTestFixture::TestMockRenderer mockRenderer; // Use the one from the fixture
     
     // This test mainly checks that Update can be called without crashing.
     // More complex tests would verify actual rendering logic.
@@ -125,4 +113,136 @@ TEST(TileSystemTest, CanCreateAndUpdate) {
     EXPECT_EQ(mockRenderer.drawRectCallCount, 0); 
     // If drawing is uncommented in TileSystem.cpp (25 vertical, 19 horizontal lines):
     // EXPECT_EQ(mockRenderer.drawRectCallCount, 25 + 19); // 44
+}
+
+
+// RenderSystem Tests
+#include "inc/core/systems/RenderSystem.hpp"
+#include "inc/core/components/SpriteComponent.hpp"
+#include "test_fixture.hpp" // For SDLTestFixture and TestMockRenderer
+
+// Use the SDLTestFixture to get a valid SDL_Renderer for creating textures if needed
+// but RenderSystem itself will be tested with the TestMockRenderer.
+class RenderSystemTest : public SDLTestFixture {
+protected:
+    // SDL_Texture* dummyTexture = nullptr; // Create a dummy texture for tests
+
+    // void SetUp() override {
+    //     SDLTestFixture::SetUp();
+    //     // Create a minimal 1x1 white texture for testing
+    //     SDL_Surface* surface = SDL_CreateRGBSurface(0, 1, 1, 32, 0, 0, 0, 0);
+    //     ASSERT_NE(surface, nullptr);
+    //     SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 255, 255, 255));
+    //     dummyTexture = SDL_CreateTextureFromSurface(renderer, surface); // renderer from SDLTestFixture
+    //     ASSERT_NE(dummyTexture, nullptr);
+    //     SDL_FreeSurface(surface);
+    // }
+
+    // void TearDown() override {
+    //     if (dummyTexture) SDL_DestroyTexture(dummyTexture);
+    //     SDLTestFixture::TearDown();
+    // }
+};
+
+
+TEST_F(RenderSystemTest, RendersVisibleSprite) {
+    entt::registry registry;
+    RenderSystem renderSystem;
+    SDLTestFixture::TestMockRenderer mockRenderer; // Use the mock from the fixture
+
+    // Create a dummy texture (can be nullptr for this test if DrawTexture handles it,
+    // or a real minimal texture if strictly needed by DrawTexture internals not mocked).
+    // For this test, RenderSystem::Update checks for sprite.texture, so it should be non-null.
+    // The actual texture content doesn't matter as DrawTexture is mocked.
+    SDL_Texture* testTexture = (SDL_Texture*)0x1; // Dummy non-null pointer
+
+    auto entity = registry.create();
+    auto& transform = registry.emplace<TransformComponent>(entity, Vector2D{100.0f, 100.0f});
+    auto& sprite = registry.emplace<SpriteComponent>(entity, testTexture, SDL_Rect{0,0,32,32});
+    sprite.visible = true;
+
+    renderSystem.Update(registry, mockRenderer, 0.0f);
+
+    ASSERT_EQ(mockRenderer.drawTextureCalls.size(), 1);
+    if (!mockRenderer.drawTextureCalls.empty()) {
+        const auto& call = mockRenderer.drawTextureCalls[0];
+        ASSERT_EQ(call.texture, testTexture);
+        ASSERT_EQ(call.dstRect.x, 100 - (32 * 0.5f)); // Assuming pivot 0.5,0.5
+        ASSERT_EQ(call.dstRect.y, 100 - (32 * 0.5f));
+        ASSERT_EQ(call.dstRect.w, 32);
+        ASSERT_EQ(call.dstRect.h, 32);
+    }
+}
+
+TEST_F(RenderSystemTest, DoesNotRenderInvisibleSprite) {
+    entt::registry registry;
+    RenderSystem renderSystem;
+    SDLTestFixture::TestMockRenderer mockRenderer;
+
+    SDL_Texture* testTexture = (SDL_Texture*)0x1; 
+    auto entity = registry.create();
+    registry.emplace<TransformComponent>(entity);
+    auto& sprite = registry.emplace<SpriteComponent>(entity, testTexture, SDL_Rect{0,0,32,32});
+    sprite.visible = false; // Invisible
+
+    renderSystem.Update(registry, mockRenderer, 0.0f);
+    ASSERT_TRUE(mockRenderer.drawTextureCalls.empty());
+}
+
+TEST_F(RenderSystemTest, ZOrderSorting) {
+    entt::registry registry;
+    RenderSystem renderSystem;
+    SDLTestFixture::TestMockRenderer mockRenderer;
+
+    SDL_Texture* tex1 = (SDL_Texture*)0x1;
+    SDL_Texture* tex2 = (SDL_Texture*)0x2;
+
+    // Entity 1: z_order 1
+    auto entity1 = registry.create();
+    registry.emplace<TransformComponent>(entity1, Vector2D{10.0f, 10.0f});
+    auto& sprite1 = registry.emplace<SpriteComponent>(entity1, tex1, SDL_Rect{0,0,16,16});
+    sprite1.z_order = 1;
+
+    // Entity 2: z_order 0
+    auto entity2 = registry.create();
+    registry.emplace<TransformComponent>(entity2, Vector2D{20.0f, 20.0f}); // Different Y for sort stability check
+    auto& sprite2 = registry.emplace<SpriteComponent>(entity2, tex2, SDL_Rect{0,0,16,16});
+    sprite2.z_order = 0;
+    
+    renderSystem.Update(registry, mockRenderer, 0.0f);
+
+    ASSERT_EQ(mockRenderer.drawTextureCalls.size(), 2);
+    if (mockRenderer.drawTextureCalls.size() == 2) {
+        ASSERT_EQ(mockRenderer.drawTextureCalls[0].texture, tex2); // Entity 2 (z_order 0) should be drawn first
+        ASSERT_EQ(mockRenderer.drawTextureCalls[1].texture, tex1); // Entity 1 (z_order 1) should be drawn second
+    }
+}
+
+TEST_F(RenderSystemTest, YSortForSameZOrder) {
+    entt::registry registry;
+    RenderSystem renderSystem;
+    SDLTestFixture::TestMockRenderer mockRenderer;
+
+    SDL_Texture* texA = (SDL_Texture*)0xA;
+    SDL_Texture* texB = (SDL_Texture*)0xB;
+
+    // Entity A: y = 100, z_order = 0
+    auto entityA = registry.create();
+    registry.emplace<TransformComponent>(entityA, Vector2D{50.0f, 100.0f});
+    auto& spriteA = registry.emplace<SpriteComponent>(entityA, texA, SDL_Rect{0,0,16,16});
+    spriteA.z_order = 0;
+
+    // Entity B: y = 50, z_order = 0
+    auto entityB = registry.create();
+    registry.emplace<TransformComponent>(entityB, Vector2D{50.0f, 50.0f});
+    auto& spriteB = registry.emplace<SpriteComponent>(entityB, texB, SDL_Rect{0,0,16,16});
+    spriteB.z_order = 0;
+
+    renderSystem.Update(registry, mockRenderer, 0.0f);
+
+    ASSERT_EQ(mockRenderer.drawTextureCalls.size(), 2);
+    if (mockRenderer.drawTextureCalls.size() == 2) {
+        ASSERT_EQ(mockRenderer.drawTextureCalls[0].texture, texB); // Entity B (y=50) drawn first
+        ASSERT_EQ(mockRenderer.drawTextureCalls[1].texture, texA); // Entity A (y=100) drawn second
+    }
 }

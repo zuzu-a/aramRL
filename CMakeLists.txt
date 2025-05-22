@@ -30,6 +30,16 @@ set(CORE_SOURCES
     src/core/tileset.cpp # Should be present from Tileset class creation
     src/core/Tilemap.cpp # Added Tilemap source
     src/core/ResourceManager.cpp # Added ResourceManager source
+    src/core/content/CharacterDefinition.cpp # Added CharacterDefinition source
+    src/core/content/ItemDefinition.cpp     # Added ItemDefinition source
+    src/core/content/TilesetDefinition.cpp  # Added TilesetDefinition source
+    src/core/EntityFactory.cpp              # Added EntityFactory source
+    src/core/procgen/PointGenerator.cpp     # Added PointGenerator source
+    src/core/procgen/DualMeshGenerator.cpp  # Added DualMeshGenerator source (placeholder)
+    src/core/procgen/ElevationGenerator.cpp # Added ElevationGenerator source
+    src/core/procgen/BiomeGenerator.cpp     # Added BiomeGenerator source
+    src/core/procgen/RiverGenerator.cpp     # Added RiverGenerator source
+    src/core/procgen/FeaturePlacer.cpp      # Added FeaturePlacer source
 )
 
 # Core engine header files (listed for clarity, not typically used in set() for sources)
@@ -38,6 +48,19 @@ set(CORE_HEADERS
     inc/core/Tileset.hpp # Relocated
     inc/core/Tilemap.hpp # Added Tilemap header
     inc/core/ResourceManager.hpp # Added ResourceManager header
+    inc/core/EntityFactory.hpp              # Added EntityFactory header
+    inc/core/content/ContentType.hpp        # Added ContentType header
+    inc/core/content/ContentDefinition.hpp  # Added ContentDefinition header
+    inc/core/content/CharacterDefinition.hpp# Added CharacterDefinition header
+    inc/core/content/ItemDefinition.hpp     # Added ItemDefinition header
+    inc/core/content/TilesetDefinition.hpp  # Added TilesetDefinition header
+    inc/core/procgen/PointGenerator.hpp     # Added PointGenerator header
+    inc/core/procgen/MeshPrimitives.hpp     # Added MeshPrimitives header
+    inc/core/procgen/DualMeshGenerator.hpp  # Added DualMeshGenerator header (placeholder)
+    inc/core/procgen/ElevationGenerator.hpp # Added ElevationGenerator header
+    inc/core/procgen/BiomeGenerator.hpp     # Added BiomeGenerator header
+    inc/core/procgen/RiverGenerator.hpp     # Added RiverGenerator header
+    inc/core/procgen/FeaturePlacer.hpp      # Added FeaturePlacer header
     inc/core/components/player.hpp
     # inc/core/components/tileset.hpp # Removed old path
     inc/core/components/transform.hpp
@@ -69,6 +92,9 @@ add_executable(${PROJECT_NAME} ${CORE_SOURCES} ${GAME_SOURCES})
 target_include_directories(${PROJECT_NAME} PUBLIC
     "${PROJECT_SOURCE_DIR}/inc/core"
     "${PROJECT_SOURCE_DIR}/inc/game"
+    "${PROJECT_SOURCE_DIR}/external/poisson_disk_sampling" 
+    "${PROJECT_SOURCE_DIR}/external/delaunator-cpp"      
+    "${PROJECT_SOURCE_DIR}/external/simplex_noise"         # Add Simplex Noise library include path
     # Vcpkg should handle its include directories automatically for linked libraries
 )
 

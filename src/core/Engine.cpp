@@ -5,15 +5,20 @@
 #include "inc/core/components/TransformComponent.hpp" // For player entity creation
 #include "inc/core/components/InputComponent.hpp"     // For player entity creation
 
+// Define FIXED_UPDATE_TIMESTEP if it's a static const in the header
+const float Engine::FIXED_UPDATE_TIMESTEP = 1.0f / 60.0f;
+
 Engine::Engine() : 
     m_window(nullptr), 
     m_renderer(nullptr), 
     m_inputSystem(), 
     m_movementSystem(), 
     m_tileSystem(),     
-    m_resourceManager(), // Initialize ResourceManager
+    m_resourceManager(), 
+    m_entityFactory(m_registry, m_resourceManager), // Initialize EntityFactory
     m_isRunning(false), 
-    m_lastFrameTime(0) 
+    m_lastFrameTime(0), 
+    m_accumulatedTime(0.0f)
 {
     // Constructor: m_renderer is initialized using its Renderer(nullptr) constructor,
     // actual SDL_Renderer will be set in Initialize.
@@ -67,6 +72,23 @@ bool Engine::Initialize() {
     m_renderer = Renderer(sdlRendererInstance); 
     m_resourceManager.Initialize(sdlRendererInstance); // Initialize ResourceManager with the SDL_Renderer
 
+    // Create the scene texture for rendering to
+    m_sceneTexture = SDL_CreateTexture(sdlRendererInstance, 
+                                       SDL_PIXELFORMAT_ARGB8888, 
+                                       SDL_TEXTUREACCESS_TARGET, 
+                                       SCREEN_WIDTH, SCREEN_HEIGHT);
+    if (!m_sceneTexture) {
+        std::cerr << "Failed to create scene texture: " << SDL_GetError() << std::endl;
+        // Handle error, potentially return false
+        SDL_DestroyRenderer(sdlRendererInstance);
+        SDL_DestroyWindow(m_window);
+        m_window = nullptr;
+        IMG_Quit();
+        SDL_Quit();
+        return false;
+    }
+    // m_ditheredSceneTexture will be created on the fly or also here if preferred static
+
     // Example Asset Loading
     // if (!m_resourceManager.LoadTexture("assets/textures/player.png", "player_sprite")) {
     //     std::cerr << "Failed to load player texture via ResourceManager" << std::endl;
@@ -79,12 +101,41 @@ bool Engine::Initialize() {
     //    std::cerr << "Failed to load dummy_tilesheet for tileset." << std::endl;
     // }
 
-    // Create a player entity
-    auto playerEntity = m_registry.create();
-    m_registry.emplace<PlayerComponent>(playerEntity, 0); // Player ID 0
-    m_registry.emplace<TransformComponent>(playerEntity, Vector2D{SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f});
-    m_registry.emplace<InputComponent>(playerEntity);
-    std::cout << "Player entity created with InputComponent." << std::endl; // For debugging
+    // Load definitions
+    if (!m_resourceManager.LoadCharacterDefinition("assets/data/content_definitions/characters/player_hero.json", "player_hero")) {
+        std::cerr << "Engine: Failed to load player_hero definition!" << std::endl;
+        // Consider returning false or handling this error more gracefully
+    }
+    if (!m_resourceManager.LoadItemDefinition("assets/data/content_definitions/items/health_potion.json", "health_potion")) {
+        std::cerr << "Engine: Failed to load health_potion definition!" << std::endl;
+    }
+    // Example: Load a TilesetDefinition (ensure the JSON and texture are set up)
+    // if (!m_resourceManager.LoadTilesetDefinition("assets/data/content_definitions/tilesets/outdoor_definition.json", "outdoor_tiles_def")) {
+    //    std::cerr << "Engine: Failed to load outdoor_tiles_def!" << std::endl;
+    // }
+    // Then, to load the actual Tileset object using the definition:
+    // if (m_resourceManager.GetTilesetDefinition("outdoor_tiles_def")) { // Check if def loaded
+    //    if (!m_resourceManager.LoadTilesetFromDefinition("outdoor_tiles_def")) {
+    //        std::cerr << "Engine: Failed to load tileset from definition 'outdoor_tiles_def'!" << std::endl;
+    //    }
+    // }
+
+
+    // Create player entity using EntityFactory
+    entt::entity player = m_entityFactory.CreateCharacter("player_hero", {SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f});
+    if (player == entt::null) {
+        std::cerr << "Engine: Failed to create player entity!" << std::endl;
+        // Potentially return false or handle error
+    } else {
+        std::cout << "Player entity created successfully by EntityFactory." << std::endl;
+    }
+    
+    // Example: Create an item using EntityFactory
+    // entt::entity item = m_entityFactory.CreateItem("health_potion", {100.0f, 100.0f});
+    // if (item == entt::null) {
+    //    std::cerr << "Engine: Failed to create item 'health_potion'!" << std::endl;
+    // }
+
 
     m_isRunning = true;
     m_lastFrameTime = SDL_GetTicks();
@@ -98,14 +149,26 @@ void Engine::Run() {
         return;
     }
     std::cout << "Engine Run loop started." << std::endl;
-    while (m_isRunning) {
-        Uint32 currentFrameTime = SDL_GetTicks();
-        float deltaTime = (currentFrameTime - m_lastFrameTime) / 1000.0f; // Delta time in seconds
-        m_lastFrameTime = currentFrameTime;
+    
+    m_lastFrameTime = SDL_GetTicks(); // Ensure m_lastFrameTime is set before the first deltaTime calculation
 
-        ProcessEvents();
-        Update(deltaTime);
-        Render();
+    while (m_isRunning) {
+        Uint32 currentFrameStartTime = SDL_GetTicks();
+        float deltaTime = (currentFrameStartTime - m_lastFrameTime) / 1000.0f; // Delta time in seconds
+        m_lastFrameTime = currentFrameStartTime;
+
+        m_accumulatedTime += deltaTime;
+
+        ProcessEvents(); // Process all pending events
+
+        // Fixed update loop
+        while (m_accumulatedTime >= FIXED_UPDATE_TIMESTEP) {
+            UpdateLogic(FIXED_UPDATE_TIMESTEP);
+            m_accumulatedTime -= FIXED_UPDATE_TIMESTEP;
+        }
+
+        // Pass m_accumulatedTime / FIXED_UPDATE_TIMESTEP as alpha for interpolation if needed in Render
+        Render(); 
     }
     std::cout << "Engine Run loop ended." << std::endl;
 }
@@ -126,12 +189,12 @@ void Engine::ProcessEvents() {
     }
 }
 
-void Engine::Update(float deltaTime) {
-    m_inputSystem.PrepareForNewFrame(m_registry); // Call before UpdateContinuousInput
-    m_inputSystem.UpdateContinuousInput(m_registry);
-    m_movementSystem.Update(m_registry, deltaTime);
+void Engine::UpdateLogic(float fixedDeltaTime) { // Renamed from Update, parameter changed
+    m_inputSystem.PrepareForNewFrame(m_registry); // Doesn't use deltaTime
+    m_inputSystem.UpdateContinuousInput(m_registry); // Doesn't use deltaTime directly
+    m_movementSystem.Update(m_registry, fixedDeltaTime); // Uses fixedDeltaTime
 
-    // Game logic updates using m_registry and deltaTime
+    // Game logic updates using m_registry and fixedDeltaTime
     // For example, other systems would be called here:
     // collisionSystem.update(m_registry, deltaTime);
     // std::cout << "Update delta time: " << deltaTime << std::endl;
@@ -145,25 +208,67 @@ void Engine::Update(float deltaTime) {
 }
 
 void Engine::Render() {
-    m_renderer.SetDrawColor(20, 20, 80, 255); // Dark blue background
+    SDL_Renderer* currentSdlRenderer = m_renderer.GetSDLRenderer();
+
+    // 1. Render scene to m_sceneTexture
+    SDL_SetRenderTarget(currentSdlRenderer, m_sceneTexture);
+    m_renderer.SetDrawColor(20, 20, 80, 255); // Dark blue background for the scene texture
     m_renderer.Clear();
 
-    m_tileSystem.Update(m_registry, m_renderer, 0.0f); // deltaTime might not be needed for rendering
+    m_tileSystem.Update(m_registry, m_renderer, 0.0f); // Render tiles to m_sceneTexture
+    m_renderSystem.Update(m_registry, m_renderer, m_accumulatedTime / FIXED_UPDATE_TIMESTEP); // Render sprites to m_sceneTexture
+    
+    // 2. Read pixels from m_sceneTexture to a surface
+    SDL_Surface* sceneSurface = SDL_CreateRGBSurfaceWithFormat(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (sceneSurface) {
+        // Important: Ensure render target is m_sceneTexture before reading
+        SDL_RenderReadPixels(currentSdlRenderer, nullptr, SDL_PIXELFORMAT_ARGB8888, sceneSurface->pixels, sceneSurface->pitch);
 
-    // Render player
-    auto player_view = m_registry.view<PlayerComponent, TransformComponent>();
-    for (auto entity : player_view) {
-        const auto& transform = player_view.get<TransformComponent>(entity);
-        m_renderer.SetDrawColor(100, 255, 100, 255); // Light Green for player
-        // DrawChar expects int coordinates
-        m_renderer.DrawChar('@', static_cast<int>(transform.position.x), static_cast<int>(transform.position.y));
+        // 3. Create a destination surface for dithering
+        SDL_Surface* ditheredSurface = SDL_CreateRGBSurfaceWithFormat(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888);
+        if (ditheredSurface) {
+            // 4. Apply dithering
+            RetroDither::ApplyBayerDithering(sceneSurface, ditheredSurface, 4); // Use 4x4 matrix
+
+            // 5. Create/Update m_ditheredSceneTexture from ditheredSurface
+            if (m_ditheredSceneTexture) {
+                SDL_DestroyTexture(m_ditheredSceneTexture); // Destroy old one
+            }
+            m_ditheredSceneTexture = SDL_CreateTextureFromSurface(currentSdlRenderer, ditheredSurface);
+            SDL_FreeSurface(ditheredSurface);
+        } else {
+            std::cerr << "Failed to create dithered surface: " << SDL_GetError() << std::endl;
+        }
+        SDL_FreeSurface(sceneSurface);
+    } else {
+        std::cerr << "Failed to create scene surface for reading pixels: " << SDL_GetError() << std::endl;
     }
 
-    m_renderer.Present();
+    // 6. Render final texture to screen
+    SDL_SetRenderTarget(currentSdlRenderer, nullptr); // Reset to default render target (the window)
+    m_renderer.SetDrawColor(0, 0, 0, 255); // Clear window to black (or other background)
+    m_renderer.Clear();
+
+    if (m_ditheredSceneTexture) {
+        SDL_RenderCopy(currentSdlRenderer, m_ditheredSceneTexture, nullptr, nullptr);
+    } else if (m_sceneTexture) { // Fallback if dithering failed
+        SDL_RenderCopy(currentSdlRenderer, m_sceneTexture, nullptr, nullptr);
+    }
+    
+    m_renderer.Present(); // Present the final rendered screen
 }
 
 void Engine::Shutdown() {
     std::cout << "Engine Shutting down..." << std::endl;
+
+    if (m_sceneTexture) {
+        SDL_DestroyTexture(m_sceneTexture);
+        m_sceneTexture = nullptr;
+    }
+    if (m_ditheredSceneTexture) {
+        SDL_DestroyTexture(m_ditheredSceneTexture);
+        m_ditheredSceneTexture = nullptr;
+    }
     
     // Get the SDL_Renderer from our Renderer wrapper to destroy it
     SDL_Renderer* sdlRendererInstance = m_renderer.GetSDLRenderer();
