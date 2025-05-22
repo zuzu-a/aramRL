@@ -2,75 +2,14 @@
 #include "inc/core/Tileset.hpp"
 #include "inc/core/Tilemap.hpp"
 #include <SDL.h>
-#include <SDL_image.h>
-#include <fstream> // For creating dummy files
-#include <filesystem> // For std::filesystem::create_directory if needed
-
-// Helper to create dummy files for testing
-void CreateDummyFile(const std::string& filePath, const std::string& content) {
-    // Ensure directory exists
-    std::filesystem::path p(filePath);
-    if (p.has_parent_path()) {
-        std::filesystem::create_directories(p.parent_path());
-    }
-
-    std::ofstream outFile(filePath);
-    if (outFile.is_open()) {
-        outFile << content;
-        outFile.close();
-    } else {
-        FAIL() << "Failed to create dummy file: " << filePath;
-    }
-}
- 
-// Test Fixture for SDL dependent tests
-class SDLTestFixture : public ::testing::Test {
-protected:
-    SDL_Window* window = nullptr;
-    SDL_Renderer* renderer = nullptr;
-
-    static void SetUpTestSuite() {
-        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-            FAIL() << "SDL_Init failed: " << SDL_GetError();
-        }
-        if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
-            // It's okay if IMG_Init fails here if no PNGs are actually loaded by tests
-            // that don't rely on it. But for Tileset tests, it's important.
-            // For now, let's make it a non-fatal warning for SetUpTestSuite.
-            std::cerr << "Warning: IMG_Init failed: " << IMG_GetError() << std::endl;
-        }
-    }
-
-    static void TearDownTestSuite() {
-        IMG_Quit();
-        SDL_Quit();
-    }
-
-
-    void SetUp() override {
-        window = SDL_CreateWindow("Test", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 100, 100, SDL_WINDOW_HIDDEN);
-        if (!window) {
-            FAIL() << "SDL_CreateWindow failed: " << SDL_GetError();
-        }
-        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE); // Use software for CI if no display
-        if (!renderer) {
-            FAIL() << "SDL_CreateRenderer failed: " << SDL_GetError();
-        }
-        
-        // Ensure test data directory exists
-        std::filesystem::create_directories("tests/data");
-    }
-
-    void TearDown() override {
-        if (renderer) SDL_DestroyRenderer(renderer);
-        if (window) SDL_DestroyWindow(window);
-        // SDL_Quit and IMG_Quit are handled in TearDownTestSuite
-    }
-};
+#include <SDL_image.h> // Already included by test_fixture.hpp but good for clarity
+// #include <fstream> // For creating dummy files - now in test_fixture.hpp
+// #include <filesystem> // For std::filesystem::create_directory if needed - now in test_fixture.hpp
+#include "test_fixture.hpp" // Include the shared test fixture
 
 
 // Tileset Tests (using the fixture)
-class TilesetTest : public SDLTestFixture {};
+class TilesetTest : public SDLTestFixture {}; // Inherit from shared fixture
 
 TEST_F(TilesetTest, LoadValidTileset) {
     // Create dummy JSON for this test
@@ -79,7 +18,7 @@ TEST_F(TilesetTest, LoadValidTileset) {
         "image": "dummy_sheet.png", "imageheight": 16, "imagewidth": 16,
         "tiles": [{"id": 0}]
     })";
-    CreateDummyFile("tests/data/dummy_tileset.json", jsonContent);
+    TestUtils::CreateDummyFile("tests/data/dummy_tileset.json", jsonContent); // Use namespaced helper
     // WORKER NOTE: This test relies on "tests/data/dummy_sheet.png" (16x16 red square) being present.
     // If not present, tileset.loadTileSet is expected to return false.
 
@@ -115,9 +54,9 @@ TEST_F(TilesetTest, LoadMissingTexture) {
         "name": "TestSetMissingTexture", "tilewidth": 16, "tileheight": 16, "tilecount": 1, "columns": 1,
         "image": "nonexistent.png", "imageheight": 16, "imagewidth": 16
     })";
-    CreateDummyFile("tests/data/dummy_tileset_no_tex.json", jsonContent);
+    TestUtils::CreateDummyFile("tests/data/dummy_tileset_no_tex.json", jsonContent); // Use namespaced helper
     Tileset tileset;
-    ASSERT_FALSE(tileset.loadTileSet(renderer, "tests/data/dummy_tileset_no_tex.json", "tests/data/nonexistent.png"));
+    ASSERT_FALSE(tileset.loadDataFromJson("tests/data/dummy_tileset_no_tex.json", nullptr)); // Pass nullptr for texture
 }
  
 TEST_F(TilesetTest, GetTileSourceRectInvalidID) {
@@ -125,18 +64,41 @@ TEST_F(TilesetTest, GetTileSourceRectInvalidID) {
         "name": "TestSetRect", "tilewidth": 16, "tileheight": 16, "tilecount": 1, "columns": 1,
         "image": "dummy_sheet.png", "imageheight": 16, "imagewidth": 16, "tiles": [{"id": 0}]
     })";
-    CreateDummyFile("tests/data/dummy_tileset_rect.json", jsonContent);
+    TestUtils::CreateDummyFile("tests/data/dummy_tileset_rect.json", jsonContent); // Use namespaced helper
     // WORKER NOTE: This test also relies on "tests/data/dummy_sheet.png".
     Tileset tileset;
-    bool loadSuccess = tileset.loadTileSet(renderer, "tests/data/dummy_tileset_rect.json", "tests/data/dummy_sheet.png");
+    // For this test, we need a valid texture to proceed to getTileSourceRect
+    // We'll use a dummy texture loaded by ResourceManager if possible, or skip.
+    // However, TilesetTest doesn't have ResourceManager.
+    // The original test assumed loadTileSet would load the texture.
+    // With the refactor, Tileset needs a texture passed to loadDataFromJson.
+    // This specific test case for Tileset becomes harder to isolate without RM.
+    // For now, let's assume if loadDataFromJson is called with a texture, it works,
+    // and we're testing getTileSourceRect's logic for an invalid ID.
+    // We need to manually create a dummy texture for the tileset to use.
+    // This logic is a bit convoluted now due to Tileset not owning textures.
+    
+    SDL_Surface* surface = IMG_Load("tests/data/dummy_sheet.png");
+    if (!surface) {
+         GTEST_SKIP() << "Skipping GetTileSourceRectInvalidID assertions: dummy_sheet.png could not be loaded for manual texture creation.";
+    }
+    SDL_Texture* dummyTex = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    ASSERT_NE(dummyTex, nullptr);
+
+    bool loadSuccess = tileset.loadDataFromJson("tests/data/dummy_tileset_rect.json", dummyTex);
 
     if (!loadSuccess) {
-        GTEST_SKIP() << "Skipping GetTileSourceRectInvalidID assertions because dummy_sheet.png could not be loaded.";
+        // This might happen if JSON is bad, but texture should be fine
+        SDL_DestroyTexture(dummyTex);
+        GTEST_FAIL() << "Failed to load data from JSON for GetTileSourceRectInvalidID test.";
     }
 
     SDL_Rect rect = tileset.getTileSourceRect(99); // Invalid ID
     ASSERT_EQ(rect.w, 0); // Expect a zero-width rect for invalid IDs
     ASSERT_EQ(rect.h, 0);
+
+    if (dummyTex) SDL_DestroyTexture(dummyTex); // Clean up manually created texture
 }
 
 

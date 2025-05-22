@@ -32,7 +32,7 @@ void InputSystem::ProcessEvent(entt::registry& registry, const SDL_Event& event)
 }
  
 void InputSystem::UpdateMovementFlags(InputComponent& inputComp) {
-    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    const Uint8* keystate = SDL_GetKeyboardState(nullptr);
     inputComp.move_up = keystate[SDL_SCANCODE_W];
     inputComp.move_down = keystate[SDL_SCANCODE_S];
     inputComp.move_left = keystate[SDL_SCANCODE_A];

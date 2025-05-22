@@ -1,7 +1,10 @@
 #include "inc/core/Tileset.hpp" // Adjust path as needed
-#include <SDL_image.h>
+#include <SDL_image.h> // For IMG_Load (though Tileset no longer loads its own texture directly)
+                       // This include might become unnecessary if texture loading is fully external.
+                       // For now, it's harmless.
 #include <fstream>
 #include <iostream> // For std::cerr
+#include <nlohmann/json.hpp> // Added for JSON parsing
 
 Tileset::Tileset() : 
     m_texture(nullptr), 
@@ -13,18 +16,13 @@ Tileset::Tileset() :
 {}
 
 Tileset::~Tileset() {
-    if (m_texture) {
-        SDL_DestroyTexture(m_texture);
-        m_texture = nullptr;
-    }
+    // m_texture is now owned by ResourceManager. This destructor should be empty.
 }
 
-bool Tileset::loadTileSet(SDL_Renderer* renderer, const std::string& jsonFilePath, const std::string& texturePath) {
-    // Clear previous data if any
-    if (m_texture) {
-        SDL_DestroyTexture(m_texture);
-        m_texture = nullptr;
-    }
+bool Tileset::loadDataFromJson(const std::string& jsonFilePath, SDL_Texture* tileSheetTexture) {
+    // Clear previous data if any, but don't destroy the old m_texture as we don't own it.
+    // The old m_texture (if any) was managed by ResourceManager.
+    m_texture = nullptr; // Reset pointer before assigning new one.
     m_tileWidth = 0;
     m_tileHeight = 0;
     m_rows = 0;
@@ -47,18 +45,12 @@ bool Tileset::loadTileSet(SDL_Renderer* renderer, const std::string& jsonFilePat
         return false;
     }
 
-    // Load texture
-    SDL_Surface* surface = IMG_Load(texturePath.c_str());
-    if (!surface) {
-        std::cerr << "Failed to load texture: " << IMG_GetError() << " for file " << texturePath << std::endl;
+    // Texture is now passed in, not loaded here.
+    if (!tileSheetTexture) {
+        std::cerr << "Provided tileSheetTexture is null." << std::endl;
         return false;
     }
-    m_texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    if (!m_texture) {
-        std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
-        return false;
-    }
+    m_texture = tileSheetTexture;
 
     // Populate Tileset members from JSON
     m_name = tilesheet_data.value("name", "Unknown Tileset");

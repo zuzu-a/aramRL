@@ -29,6 +29,7 @@ set(CORE_SOURCES
     # src/core/tiles.cpp # Removed
     src/core/tileset.cpp # Should be present from Tileset class creation
     src/core/Tilemap.cpp # Added Tilemap source
+    src/core/ResourceManager.cpp # Added ResourceManager source
 )
 
 # Core engine header files (listed for clarity, not typically used in set() for sources)
@@ -36,6 +37,7 @@ set(CORE_HEADERS
     inc/core/Engine.hpp
     inc/core/Tileset.hpp # Relocated
     inc/core/Tilemap.hpp # Added Tilemap header
+    inc/core/ResourceManager.hpp # Added ResourceManager header
     inc/core/components/player.hpp
     # inc/core/components/tileset.hpp # Removed old path
     inc/core/components/transform.hpp

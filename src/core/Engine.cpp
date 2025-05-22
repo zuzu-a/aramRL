@@ -9,8 +9,9 @@ Engine::Engine() :
     m_window(nullptr), 
     m_renderer(nullptr), 
     m_inputSystem(), 
-    m_movementSystem(), // Initialize MovementSystem
-    m_tileSystem(),     // Initialize TileSystem
+    m_movementSystem(), 
+    m_tileSystem(),     
+    m_resourceManager(), // Initialize ResourceManager
     m_isRunning(false), 
     m_lastFrameTime(0) 
 {
@@ -63,10 +64,20 @@ bool Engine::Initialize() {
     }
     
     // Assign the created SDL_Renderer to our Renderer wrapper object
-    m_renderer = Renderer(sdlRendererInstance); // This uses Renderer's copy assignment or move assignment if available and applicable.
-                                                // Assumes Renderer has a working copy/move assignment or a constructor that can re-initialize.
-                                                // If Renderer is not designed for reassignment, this might need adjustment
-                                                // (e.g. m_renderer.SetSDLRenderer(sdlRendererInstance);)
+    m_renderer = Renderer(sdlRendererInstance); 
+    m_resourceManager.Initialize(sdlRendererInstance); // Initialize ResourceManager with the SDL_Renderer
+
+    // Example Asset Loading
+    // if (!m_resourceManager.LoadTexture("assets/textures/player.png", "player_sprite")) {
+    //     std::cerr << "Failed to load player texture via ResourceManager" << std::endl;
+    // }
+    // if (m_resourceManager.LoadTexture("tests/data/dummy_sheet.png", "dummy_tilesheet")) {
+    //    if (!m_resourceManager.LoadTileset("tests/data/sample_tileset.json", "dummy_tilesheet", "sample_tileset")) {
+    //        std::cerr << "Failed to load sample_tileset via ResourceManager" << std::endl;
+    //    }
+    // } else {
+    //    std::cerr << "Failed to load dummy_tilesheet for tileset." << std::endl;
+    // }
 
     // Create a player entity
     auto playerEntity = m_registry.create();
