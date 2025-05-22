@@ -65,3 +65,47 @@ bool Tilemap::IsWalkable(int x, int y) const {
     // This should be configurable or based on tile properties in a real game.
     return tileID == 0; 
 }
+
+void Tilemap::PopulateFromMeshData(const ProcGen::MeshData& meshData, int gridWidth, int gridHeight) {
+    if (gridWidth <= 0 || gridHeight <= 0) {
+        std::cerr << "Tilemap::PopulateFromMeshData: Invalid grid dimensions." << std::endl;
+        return;
+    }
+
+    m_width = gridWidth;
+    m_height = gridHeight;
+    m_tiles.assign(m_height, std::vector<int>(m_width, 3)); // Default to GRASSLAND (Tile ID 3)
+
+    if (meshData.sites.empty() || meshData.bounds.GetWidth() <= 0 || meshData.bounds.GetHeight() <= 0) {
+        // std::cerr << "Tilemap::PopulateFromMeshData: No sites or invalid meshData.bounds to populate from." << std::endl;
+        return; // Keep default filled map
+    }
+
+    for (const auto& site : meshData.sites) {
+        // Normalize site position to [0, 1] within meshData.bounds
+        float normX = (site.point.x - meshData.bounds.min.x) / meshData.bounds.GetWidth();
+        float normY = (site.point.y - meshData.bounds.min.y) / meshData.bounds.GetHeight();
+
+        // Map normalized position to grid coordinates
+        int gx = static_cast<int>(normX * gridWidth);
+        int gy = static_cast<int>(normY * gridHeight);
+
+        // Clamp coordinates to be within grid bounds
+        gx = std::max(0, std::min(gx, gridWidth - 1));
+        gy = std::max(0, std::min(gy, gridHeight - 1));
+
+        int tileID = 3; // Default to GRASSLAND
+        switch (site.biome) {
+            case ProcGen::Site::BiomeType::DEEP_WATER:    tileID = 0; break;
+            case ProcGen::Site::BiomeType::SHALLOW_WATER: tileID = 1; break;
+            case ProcGen::Site::BiomeType::BEACH:         tileID = 2; break;
+            case ProcGen::Site::BiomeType::GRASSLAND:     tileID = 3; break;
+            case ProcGen::Site::BiomeType::FOREST:        tileID = 4; break; // Base forest tile
+            case ProcGen::Site::BiomeType::ROCKY:         tileID = 5; break;
+            case ProcGen::Site::BiomeType::SNOW:          tileID = 6; break;
+            case ProcGen::Site::BiomeType::UNKNOWN:       // Fallthrough to default
+            default:                                      tileID = 3; break; 
+        }
+        m_tiles[gy][gx] = tileID;
+    }
+}

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string> // For file path in load method
+#include "inc/core/procgen/MeshPrimitives.hpp" // Added for ProcGen::MeshData
 
 class Tilemap {
 public:
@@ -16,6 +17,9 @@ public:
     bool IsWalkable(int x, int y) const; // Example method
     int GetWidth() const { return m_width; }
     int GetHeight() const { return m_height; }
+
+    // Populates the tilemap grid based on ProcGen::MeshData
+    void PopulateFromMeshData(const ProcGen::MeshData& meshData, int gridWidth, int gridHeight);
 
 private:
     int m_width = 0;

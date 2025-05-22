@@ -4,6 +4,7 @@
 #include "inc/core/components/PlayerComponent.hpp"    // For player entity creation
 #include "inc/core/components/TransformComponent.hpp" // For player entity creation
 #include "inc/core/components/InputComponent.hpp"     // For player entity creation
+#include "inc/core/procgen/PointGenerator.hpp"      // For PointGenerator and AABB
 
 // Define FIXED_UPDATE_TIMESTEP if it's a static const in the header
 const float Engine::FIXED_UPDATE_TIMESTEP = 1.0f / 60.0f;
@@ -15,7 +16,10 @@ Engine::Engine() :
     m_movementSystem(), 
     m_tileSystem(),     
     m_resourceManager(), 
-    m_entityFactory(m_registry, m_resourceManager), // Initialize EntityFactory
+    m_entityFactory(m_registry, m_resourceManager),
+    m_dualMeshGenerator(m_entityFactory), // Initialize DualMeshGenerator
+    m_gameMap(),                          // Initialize Tilemap
+    m_procGenMeshData(),                  // Initialize MeshData
     m_isRunning(false), 
     m_lastFrameTime(0), 
     m_accumulatedTime(0.0f)
@@ -119,6 +123,40 @@ bool Engine::Initialize() {
     //        std::cerr << "Engine: Failed to load tileset from definition 'outdoor_tiles_def'!" << std::endl;
     //    }
     // }
+    // Load the dummy texture for the tileset
+    if (!m_resourceManager.LoadTexture("tests/data/dummy_sheet.png", "sheet_for_tileset")) {
+        std::cerr << "Engine: Failed to load dummy_sheet.png for world_tileset!" << std::endl;
+        // Potentially return false or handle error
+    }
+    // Load the sample tileset using the dummy texture
+    if (!m_resourceManager.LoadTileset("tests/data/sample_tileset.json", "sheet_for_tileset", "world_tileset")) {
+        std::cerr << "Engine: Failed to load world_tileset!" << std::endl;
+        // Potentially return false or handle error
+    }
+
+    // Procedural Generation
+    int64_t mapSeed = 12345; 
+    ProcGen::AABB mapBounds = {0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT)};
+    float pointSpacing = 50.0f; 
+    
+    ProcGen::PointGenerator pointGenerator; // Create local or member if it has state
+    m_procGenMeshData.bounds = mapBounds; 
+    m_procGenMeshData.sites = pointGenerator.GeneratePoissonPoints(mapBounds, pointSpacing, 30, static_cast<unsigned int>(mapSeed));
+    
+    m_dualMeshGenerator.GenerateDelaunay(m_procGenMeshData); 
+    m_dualMeshGenerator.GenerateMapFeatures(m_procGenMeshData, mapSeed); 
+
+    // Populate Tilemap
+    // Assuming 32x32 tiles from sample_tileset.json (which has tilewidth: 32, tileheight: 32)
+    Tileset* worldTileset = m_resourceManager.GetTileset("world_tileset");
+    int tileWidth = worldTileset ? worldTileset->getTileWidth() : 32;
+    int tileHeight = worldTileset ? worldTileset->getTileHeight() : 32;
+    if (tileWidth == 0) tileWidth = 32; // Fallback if tileset not loaded or has 0 width
+    if (tileHeight == 0) tileHeight = 32;
+
+    int mapGridWidth = SCREEN_WIDTH / tileWidth; 
+    int mapGridHeight = SCREEN_HEIGHT / tileHeight;
+    m_gameMap.PopulateFromMeshData(m_procGenMeshData, mapGridWidth, mapGridHeight);
 
 
     // Create player entity using EntityFactory
@@ -135,7 +173,6 @@ bool Engine::Initialize() {
     // if (item == entt::null) {
     //    std::cerr << "Engine: Failed to create item 'health_potion'!" << std::endl;
     // }
-
 
     m_isRunning = true;
     m_lastFrameTime = SDL_GetTicks();
@@ -215,8 +252,19 @@ void Engine::Render() {
     m_renderer.SetDrawColor(20, 20, 80, 255); // Dark blue background for the scene texture
     m_renderer.Clear();
 
-    m_tileSystem.Update(m_registry, m_renderer, 0.0f); // Render tiles to m_sceneTexture
-    m_renderSystem.Update(m_registry, m_renderer, m_accumulatedTime / FIXED_UPDATE_TIMESTEP); // Render sprites to m_sceneTexture
+    // Render the tilemap first
+    Tileset* worldTileset = m_resourceManager.GetTileset("world_tileset");
+    if (worldTileset) {
+        m_tileSystem.Update(m_gameMap, *worldTileset, m_renderer, m_accumulatedTime / FIXED_UPDATE_TIMESTEP);
+    } else {
+        // std::cerr << "Engine::Render - world_tileset not found!" << std::endl;
+        // Optionally draw a fallback grid or error color if tileset isn't loaded
+        m_renderer.SetDrawColor(255,0,255,255); // Bright Pink for error
+        m_renderer.Clear(); // Fill scene texture with error color
+    }
+    
+    // Then render sprites/entities on top
+    m_renderSystem.Update(m_registry, m_renderer, m_accumulatedTime / FIXED_UPDATE_TIMESTEP); 
     
     // 2. Read pixels from m_sceneTexture to a surface
     SDL_Surface* sceneSurface = SDL_CreateRGBSurfaceWithFormat(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888);
